@@ -4,6 +4,7 @@
 # import MLTEST.py
 import pandas as pd  
 import numpy as np
+import math
 import warnings 
 warnings.filterwarnings("ignore")
 
@@ -88,22 +89,68 @@ def Decision_Stump(data, attributes, label, outcome_list, attribute_vals, tree, 
           root_node[A][v] = Id3_IG(S_v, attributes, label, outcome_list, attribute_vals,tree, current_depth + 1)
     return root_node
 
-# # We have 'm' examples
-# # D_t is a set of weights over the examples [D_t(1),...., D_t(m)]
-# # initially uniform dist. weight is 1/m
-# # Compute Info Gain to select the best feature
+def find_error(decision_stump,data,weights,label):
+  test_num = len(data.index)
+  e_t = 0
+  attribute_to_check = list(decision_tree.keys())[0]
+  updated_weights = [0] * test_num
+  for row_index in range(test_num):
+    print(row_index)
+    row_value = test_data.iloc[row_index]
+    attribute_val = row_value[attribute_to_check]
+    tree_res = decision_tree[attribute_to_check][attribute_val]
+    while type(tree_res) == dict:
+      next_attribute_to_check = list(tree_res.keys())[0]
+      next_attribute_val = row_value[next_attribute_to_check]
+      tree_res = tree_res[next_attribute_to_check][next_attribute_val]
+  
 
-# # New weight  = sample weight * e^{amount of say} while increasing sample weight for incorrectly classified examples
-# # New weight = sample weight * e^{- amount of say} while decreasing sample weight for correctly classified examples.
-# # Amount of say  = 0.5 * log((1- Total Error) / Total Error)
-# # NORMALIZE VALUES THEN
-def adaBoost(t_iter,m):
+    if tree_res != test_data.iloc[row_index][label]: # correct prediction
+      e_t += weights[row_index]
+      # updated_weights[row_index] = weights[i] * math.exp(-alpha_t * 1)
+    # else: # wrong prediction
+    #   # updated_weights[row_index] = weights[i] * math.exp(-alpha_t * -1)
+  return e_t
+
+def update_weights(decision_stump,data,weights,label):
+  test_num = len(data.index)
+  e_t = 0
+  attribute_to_check = list(decision_tree.keys())[0]
+  updated_weights = [0] * test_num
+  for row_index in range(test_num):
+    print(row_index)
+    row_value = test_data.iloc[row_index]
+    attribute_val = row_value[attribute_to_check]
+    tree_res = decision_tree[attribute_to_check][attribute_val]
+    while type(tree_res) == dict:
+      next_attribute_to_check = list(tree_res.keys())[0]
+      next_attribute_val = row_value[next_attribute_to_check]
+      tree_res = tree_res[next_attribute_to_check][next_attribute_val]
+  
+
+    if tree_res == test_data.iloc[row_index][label]: # correct prediction
+      updated_weights[row_index] = weights[i] * math.exp(-alpha_t * 1)
+    else: # wrong prediction
+      updated_weights[row_index] = weights[i] * math.exp(-alpha_t * -1)
+
+  return [(val / sum(update_weights)) for val in update_weights]
+
+def compute_vote(e_t):
+  return 0.5 * math.log((1-e_t) / e_t)
+
+def adaBoost(data,attributes,label,outcome_list,attribute_vals,tree,current_depth,t_iter,m):
     D_t = [1/m] * m # Initializing weights
-    # for t in range(t_iter):
+    df_temp = data
+    for t in range(t_iter):
+        weights = df_temp["Weights"]
+        h_t = Decision_Stump(df_temp,attributes,label,outcome_list,attribute_vals,tree,current_depth)
         # find a classifier h_t whose weighted classification error is better
-        # compute its vote (amount of say):
-        # alpha_t = 0.5 ln ((1 - e_t) / e_t)
-        # Update the values of the weights for the training examples.
+        e_t = find_error(h_t,df_temp,weights,label)
+        alpha_t = compute_vote(e_t)
+        # Compute its vote
+        df_temp.drop("Weights", axis = 1, inplace = True)
+        df_temp['Weights'] = update_weights(h_t,df_temp,weights,label)
+        # Update the values of weights
     
     # Return the final hypothesis,
     return 0
@@ -116,7 +163,5 @@ data = [['S','H','H','W','-',2/8],
         ['R','M','H','W','+',3/8],
         ['R','C','N','W','+',1/8]] 
   
-# Create the pandas DataFrame 
+# Create the pandas DataFrame for testing purposes
 df = pd.DataFrame(data, columns=['Outlook','Temperature','Humidity','Wind','Play?','Weights']) 
-# find_data_entropy_weights(df,'Play?', ['+','-'])
-print(find_split_attribute(df,'Play?', ['+','-']))
