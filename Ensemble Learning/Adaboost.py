@@ -3,20 +3,24 @@ import numpy as np
 import math
 import warnings 
 import statistics
+import matplotlib.pyplot as plt
 warnings.filterwarnings("ignore")
 
 def find_info_gain(data_set, attribute, label, outcome_list):
+  # print(data_set)
   attribute_vals = data_set[attribute].unique()
   current_info = 0.0
-  total_data_count = len(data_set.index)
+  total_data_count = sum(data_set["Weights"])
   total_entropy = find_data_entropy_weights(data_set,label,outcome_list)
   for val in attribute_vals:
     df_sorted = data_set[data_set[attribute] == val]
-    sorted_data_count = len(df_sorted.index)
+    sorted_data_count = sum(df_sorted["Weights"]) #len(df_sorted.index)
     ent = find_data_entropy_weights(df_sorted,label,outcome_list)
     attribute_proportion = sorted_data_count / total_data_count
     if pd.isna(ent) == False:
       current_info += attribute_proportion * ent
+
+  # print("INFO GAIN FOR ATTRIBUTE: ", attribute, " IS ", total_entropy-current_info)
   return total_entropy - current_info
 
 def find_data_entropy_weights(data_set, label, outcome_list):
@@ -25,19 +29,29 @@ def find_data_entropy_weights(data_set, label, outcome_list):
   # outcome_list -> possible outcomes that can appear under the label. [0,1] for HW1 Q1.
   result = 0
   current_entropy = 0
-  # total_data_count = len(data_set.index) # finds the number of data in dataset to use it while calculating proprotion
   # weights = data_set["Weights"]
+  # print("____________________________")
+  # print(data_set)
+  b = sum(data_set["Weights"])
+
   for outcome in outcome_list:
-      proportion = sum(data_set.loc[data_set[label] == outcome, "Weights"])
+      a = sum(data_set.loc[data_set[label] == outcome, "Weights"])
+      # print("A ",a)
+      # print("B ",b)
+      proportion = a / b
+      # print("PROPORTION FOR OUTCOME: ", outcome, " IS ", proportion)
+      # print("____________________________")
+
       current_entropy = -proportion * np.log2(proportion)
       if proportion != 0:
-          # calculate the entropy for the current outcome
-          result += current_entropy
+        result += current_entropy
       # adds to the entropy for the whole data set
+  # print("Entropy ", result)
   return result
 
-def find_split_attribute(data_set, label, outcome_list,attributes):
-  attribute_list = attributes.values.tolist()
+def find_split_attribute(data_set, label, outcome_list):
+  attribute_list = data_set.columns.tolist()
+  attribute_list.pop() # removes weight from attributes
   attribute_list.pop() # removes label from attributes
   info_gains = []
 
@@ -50,19 +64,28 @@ def find_split_attribute(data_set, label, outcome_list,attributes):
   # print(split_attribute)
   return split_attribute
 
-def Decision_Stump(data, attributes, label, outcome_list, attribute_vals):
+def commonLabel(data,label,weights):
+  one_sum = sum(data.loc[data[label] == 1, 'Weights'])
+  minus_one_sum = sum(data.loc[data[label] == -1, 'Weights'])
+  
+  if one_sum > minus_one_sum:
+    return 1
+  else:
+    return -1
+
+def Decision_Stump(data, label, outcome_list, attribute_vals):
     root_node = {} # create a root node for the tree
-    # print("---------------------------------------")
-    # print(data["Weights"])
-    # print("---------------------------------------")
-
-
-    A = find_split_attribute(data,label, outcome_list,attributes)
+    A = find_split_attribute(data,label, outcome_list)
     root_node[A] = {}
     for v in attribute_vals[A]:
       root_node[A][v] = {} # create a new tree branch for A=v
       S_v = data[data[A] == v] # S_v subset of examples where A = v
-      leaf_node = max(set(S_v[label]), key=list(data[label]).count) # leaf node with most common value of Label in S
+      # print(S_v)
+      if len(S_v) != 0:
+        leaf_node = commonLabel(S_v,label,S_v["Weights"])
+       # leaf_node = max(set(S_v[label]), key=list(S_v[label]).count) # leaf node with most common value of Label in S
+      else:
+        leaf_node = commonLabel(data,label,data["Weights"])#max(set(data[label]), key=list(data[label]).count) # leaf node with most common value of Label in S
       root_node[A][v] = leaf_node
     return root_node
 
@@ -89,39 +112,43 @@ def update_weights(decision_stump,data,weights,label,alpha_t):
     attribute_val = row_value[attribute_to_check]
     tree_res = decision_stump[attribute_to_check][attribute_val]
     if tree_res == data.iloc[row_index][label]: # correct prediction
-      updated_weights[row_index] = weights[row_index] * math.exp(-alpha_t * 1)
+      updated_weights[row_index] = weights[row_index] * np.exp(-alpha_t * 1)
     else: # wrong prediction
-      updated_weights[row_index] = weights[row_index] * math.exp(-alpha_t * -1)
+      updated_weights[row_index] = weights[row_index] * np.exp(-alpha_t * -1)
   
   # print("NEW:")
   # print([(val / sum(updated_weights)) for val in updated_weights])
   return [(val / sum(updated_weights)) for val in updated_weights]
 
 def compute_vote(e_t):
-  return 0.5 * math.log((1-e_t) / (e_t + 0.000001))
+  # print("E_t is: ", e_t)
+  return (0.5 * np.log((1-e_t) / float(e_t)))
 
-def adaBoost(data,attributes,label,outcome_list,attribute_vals,tree,current_depth,t_iter,m):
+def adaBoost(data,label,outcome_list,attribute_vals,t_iter,m):
   D_t = [1/m] * m # Initializing weights
   data["Weights"] = D_t
-  df_temp = data 
   weak_classifiers = []
+  errors = []
+  stump_error = []
   a_t_values = []
   for t in range(t_iter):
-      weights =  df_temp["Weights"]
-      h_t = Decision_Stump(df_temp,attributes,label,outcome_list,attribute_vals)
-      e_t = find_et(h_t,df_temp,weights,label)
+      print("Iteration: ", t)
+      h_t = Decision_Stump(data,label,outcome_list,attribute_vals)
+      e_t = find_et(h_t,data,D_t,label)
+      stump_error.append(e_t)
       alpha_t = compute_vote(e_t)
-      df_temp.drop("Weights", axis = 1, inplace = True)
-      df_temp['Weights'] = update_weights(h_t,df_temp,weights,label,alpha_t)
-
+      D_t = update_weights(h_t,data,D_t,label,alpha_t)
+      data['Weights'] = D_t
       weak_classifiers.append(h_t)
       a_t_values.append(alpha_t)
-  
-  return weak_classifiers, a_t_values
+      current_error = adaPredict(weak_classifiers,a_t_values,data,label)
+      errors.append(current_error)
+
+
+  return weak_classifiers, a_t_values, errors, stump_error
 
 def adaPredict(weak_classifiers, a_t_values, data, label):
   total_error = 0
-  error_vector = []
   for row_index in range(len(data.index)):
     result = 0
     row_value = data.iloc[row_index]
@@ -131,24 +158,33 @@ def adaPredict(weak_classifiers, a_t_values, data, label):
       attribute_val = row_value[attribute_to_check]
       expected_output = row_value[label]   
       stump_output = ht[attribute_to_check][attribute_val]
+      result += alphat * stump_output
       if expected_output == stump_output:
         result += (alphat * 1)
       else:
         result += (alphat * - 1)
-      res = np.sign(result)
-      if res == -1:
-        print("MISSED DATA NUMBER: ", row_index)
-        total_error += 1
-      
-  
+    
+
+    res = np.sign(result)
+    if res == -1:
+      total_error += 1
+    
   return total_error / (len(data.index))     
 
 def prepare_data():
+
+  # data_train = [[41,	'services',	"married",	"secondary",	"no"	,0,	"yes", "no",	"unknown",	5,	"may",	114,	2,	-1,	0,	"unknown",	"no"],
+  # [48,	"blue-collar",	"single",	"secondary",	"no",	312,	"yes",	"yes",	"cellular",	3,	"feb",	369,	2,	-1,	0,	"unknown",	"yes"],
+  # [55,	"technician",	"married",	"secondary",	"no",	1938,	"no",	"yes",	"cellular",	18,	"aug",	193,	1,	386,	3,	"success",	"no"]]
   df_train = pd.read_csv ('bank_train.csv')
+
   df_test = pd.read_csv('bank_test.csv')
   df_train.columns = ["age","job","marital","education","default","balance","housing","loan","contact","day","month","duration","campaign"
   ,"pdays","previous","poutcome","y"]
   att_vals = {}
+
+  df_train.loc[df_train["y"] == "no", "y"] = -1
+  df_train.loc[df_train["y"] == "yes", "y"] = 1
 
   age_median = statistics.median(df_train["age"].tolist())
   df_train.loc[df_train["age"] < age_median, "age"] = 0
@@ -208,6 +244,10 @@ def prepare_data():
   df_test.loc[df_test["previous"] >= previous_median_test, "previous"] = 1
 
 
+  df_test.loc[df_test["y"] == "no", "y"] = -1
+  df_test.loc[df_test["y"] == "yes", "y"] = 1
+
+
   ### CONVERTED TEST DATA TO BINARY
   att_vals['age'] = [0,1]
   att_vals['job'] = df_train['job'].unique().tolist()
@@ -225,7 +265,7 @@ def prepare_data():
   att_vals['pdays'] = [0,1]
   att_vals['previous'] = [0,1]
   att_vals['poutcome'] = ['unknown','other','failure','success']
-  att_vals['y'] = ['yes','no']
+  att_vals['y'] = [-1,1]
 
   return df_train, df_test, att_vals
 
@@ -246,30 +286,29 @@ def prepare_data():
   #     if tree_res != test_data.iloc[row_index][label]: # correct prediction
 
 def test():
-  # initialize list of lists 
-  # data = [['S','H','H','W','-',1/5],
-  #         ['S','H','H','S','-',1/5],
-  #         ['O','H','H','W','+',1/5],
-  #         ['R','M','H','W','+',1/5],
-  #         ['R','C','N','W','+',1/5]] 
   df_train, df_test, att_vals = prepare_data()
-  # # Create the pandas DataFrame for testing purposes
-  # df = pd.DataFrame(data, columns=['Outlook','Temperature','Humidity','Wind','Play?','Weights']) 
-  # att_vals = {}
-  # att_vals["Outlook"] = ['S','O','R']
-  # att_vals["Temperature"] = ['H','M','C']
-  # att_vals["Humidity"] = ['H', 'N','L']
-  # att_vals["Wind"] = ['S','W']
-  for i in range(2):
-    classifiers, ats = adaBoost(df_test,df_train.columns,"y",
-    ['yes','no'],att_vals,{},0,i+1,len(df_test.index))
-    print(adaPredict(classifiers,ats,df_test,"y"))
-  # print((len(weak_classifiers_test[0]['job'].keys())))
-  # res = adaBoost(df,['Outlook','Temperature','Humidity','Wind'],"Play?",
-  # ['+','-'],att_vals,{},0,2,5)
-  # print(len(weak_classifiers_test))
-  # print(estimate_data(weak_claso ssifiers_test,a_t_values_test,df_test,"y"))
-  # print(res)
+
+  # Running AdaBoost
+  classifiers_train, ats_train,errors_train ,stump_errors_train = adaBoost(df_train,"y",
+  [-1,1],att_vals,500,len(df_train.index))
+  
+  classifiers_test, ats_test, errors_test, stump_errors_test = adaBoost(df_test,"y",
+  [-1,1],att_vals,500,len(df_test.index))
+
+  plt.plot(errors_train,np.arange(500),color='r', label = 'Training Data')
+  plt.plot(errors_test,np.arange(500),color='g', label = 'Testing Data')
+  plt.xlabel("Error")
+  plt.ylabel("T")
+  plt.legend()
+  plt.show()
+  plt.plot(stump_errors_train,np.arange(500),color='r', label = 'Training Data')
+  plt.plot(stump_errors_test,np.arange(500),color='g', label = 'Testing Data')
+  plt.xlabel("Decision Stump Error")
+  plt.ylabel("T")
+  plt.legend()
+  plt.show()
+  # print(classifiers,ats)
+ 
+
 
 test()
-# print("Hello")
