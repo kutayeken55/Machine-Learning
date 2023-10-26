@@ -1,5 +1,5 @@
 - clone the repository to CADE machine
-- Make sure that you are in the correct directory which contains Ensemble.py and have all the csv files. (For LMS questions)
+- Make sure that you are in the correct directory which contains Ensemble.py and have all the csv files. (For Adaboost/Bagging questions)
 - Ensemble.py file is where all my code is written
 - To make the 'run.sh' file executable, use the command 'chmod u+x run.sh'
 - To run the whole code, use the command './run.sh'
