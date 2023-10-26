@@ -4,7 +4,84 @@ import math
 import warnings 
 import statistics
 import matplotlib.pyplot as plt
+import sys
+# from DecisionTree import MLTEST
 warnings.filterwarnings("ignore")
+sys.setrecursionlimit(2147483647)
+
+# REGULAR DECISION TREE
+def find_info_gain(data_set, attribute, label, outcome_list):
+  attribute_vals = data_set[attribute].unique()
+  current_info = 0.0
+  total_data_count = len(data_set.index)
+  total_entropy = find_data_entropy(data_set,label,outcome_list)
+
+  for val in attribute_vals:
+    df_sorted = data_set[data_set[attribute] == val]
+    sorted_data_count = len(df_sorted.index)
+    ent = find_data_entropy(df_sorted,label,outcome_list)
+    attribute_proportion = sorted_data_count / total_data_count
+    if pd.isna(ent) == False:
+      current_info += attribute_proportion * ent
+
+
+  return total_entropy - current_info
+
+def find_data_entropy(data_set, label, outcome_list):
+    # data_set -> data set that the entropy will be calculated for.
+    # label -> attribute that the outcome is displayed under 'y' for HW1 Q1.
+    # outcome_list -> possible outcomes that can appear under the label. [0,1] for HW1 Q1.
+    result = 0
+    current_entropy = 0
+    total_data_count = len(data_set.index) # finds the number of data in dataset to use it while calculating proprotion
+
+    for outcome in outcome_list:
+        proportion = len(data_set[data_set[label]==outcome]) / total_data_count
+        # finding the proportion for each possible outcome
+        current_entropy = -proportion * np.log2(proportion)
+
+        if proportion != 0:
+            # calculate the entropy for the current outcome
+            result += current_entropy
+        # adds to the entropy for the whole data set
+    return result
+
+def find_split_attribute(data_set, label, outcome_list):
+    attribute_list = data_set.columns.drop(label)
+    max_gain = -1
+    feature  = None
+    for attribute in attribute_list:
+        info_gain_val = find_info_gain(data_set,attribute,label,outcome_list)
+        if info_gain_val > max_gain:
+          max_gain = info_gain_val
+          feature = attribute
+
+    return feature
+
+def Id3_IG(data, attributes, label, outcome_list, attribute_vals, tree):
+
+  if len(set(data[label])) == 1: # If all examples have same label
+    if len(attributes) == 0: # if attributes empty 
+      return max(set(data[label]), key=data[label].count) # return most common label
+    else:
+      return data[label].unique()[0] # return label
+  else:
+    root_node = {}
+    A = find_split_attribute(data, label, outcome_list)
+    root_node[A] = {}
+    for v in attribute_vals[A]:
+      root_node[A][v] = {} # create a new tree branch for A=v
+      S_v = data[data[A] == v] # S_v subset of examples where A = v
+      if S_v.empty: # list is empty
+        root_node[A][v] = max(set(data[label]), key=list(data[label]).count) # add leaf node with most common label in S
+      else:
+        new_attr = [x for x in attributes if x != A]
+        root_node[A][v] = Id3_IG(S_v,new_attr, label, outcome_list, attribute_vals,tree)
+  return root_node
+
+
+  
+
 
 def prepare_data():
   df_train = pd.read_csv ('bank_train.csv')
@@ -103,7 +180,8 @@ def prepare_data():
 
   return df_train, df_test, att_vals
 
-def find_info_gain(data_set, attribute, label, outcome_list):
+# DECISION STUMP ALGORITHMS
+def find_info_gain_weights(data_set, attribute, label, outcome_list):
   attribute_vals = data_set[attribute].unique()
   current_info = 0.0
   total_data_count = sum(data_set["Weights"])
@@ -131,14 +209,14 @@ def find_data_entropy_weights(data_set, label, outcome_list):
         result += current_entropy
   return result
 
-def find_split_attribute(data_set, label, outcome_list):
+def find_split_attribute_weights(data_set, label, outcome_list):
   attribute_list = data_set.columns.tolist()
   attribute_list.pop() # removes weight from attributes
   attribute_list.pop() # removes label from attributes
   info_gains = []
 
   for attribute in attribute_list:
-    info_gain_val = find_info_gain(data_set,attribute,label,outcome_list)
+    info_gain_val = find_info_gain_weights(data_set,attribute,label,outcome_list)
     info_gains.append(info_gain_val)
 
   max_gain = max(info_gains)
@@ -156,7 +234,7 @@ def commonLabel(data,label):
 
 def Decision_Stump(data, label, outcome_list, attribute_vals):
     root_node = {} # create a root node for the tree
-    A = find_split_attribute(data,label, outcome_list)
+    A = find_split_attribute_weights(data,label, outcome_list)
     root_node[A] = {}
     for v in attribute_vals[A]:
       root_node[A][v] = {} # create a new tree branch for A=v
@@ -221,6 +299,41 @@ def adaBoost(data,label,outcome_list,attribute_vals,t_iter,m):
 
   return weak_classifiers, a_t_values, errors, stump_error
 
+def Bagging(data,t_iter,att_vals):
+  classifiers = []
+  errors = []
+  sums = [0] * len(data.index)
+  m = 5
+  for t in range(t_iter):
+    print("Iteration: ", t)
+    train_sample = data.sample(n = m, replace = True)
+    c_t = Id3_IG(train_sample,data.columns,'y',[-1,1],att_vals,None)
+    classifiers.append(c_t)
+    sums, total_error = predict_Bagging(c_t,'y',data,sums,classifiers)
+    errors.append(total_error)
+
+  return errors
+
+def predict_Bagging(c_t,label,data,sum,classifiers):
+  for row_index in range(len(data.index)):
+    row_value = data.iloc[row_index]
+    if type(c_t) == int:
+      stump_output = c_t
+    else:
+      attribute_to_check = list(c_t.keys())[0]
+      attribute_val = row_value[attribute_to_check]
+      stump_output = c_t[attribute_to_check][attribute_val]
+      while type(stump_output) == dict:
+        next_attribute_to_check = list(stump_output.keys())[0]
+        next_attribute_val = row_value[next_attribute_to_check]
+        stump_output = stump_output[next_attribute_to_check][next_attribute_val] 
+    sum[row_index] += stump_output
+
+  predictions = [np.sign(val /  len(classifiers)) for val in sum]
+  set_dif = set(predictions).symmetric_difference(set(data['y']))
+  total_error = len(list(set_dif)) / len(data.index)
+  return sum, total_error
+
 def predict(new_ht, new_alphat, label, data, old_sums):
   total_error = 0
   for row_index in range(len(data.index)):
@@ -244,7 +357,6 @@ def predict(new_ht, new_alphat, label, data, old_sums):
 
 def test():
   df_train, df_test, att_vals = prepare_data()
-
   # Running AdaBoost
   classifiers_train, ats_train,errors_train ,stump_errors_train = adaBoost(df_train,"y",
   [-1,1],att_vals,500,len(df_train.index))
@@ -268,7 +380,28 @@ def test():
   plt.show()
   plt.savefig("plot2.pdf", format="pdf",bbox_inches = "tight")
 
+def testBagging():
+  df_train, df_test, att_vals = prepare_data()
+
+  train_classifiers = Bagging(df_train,500,att_vals)
+  print(train_classifiers)
+  test_classifiers = Bagging(df_test,500,att_vals)
+  print(test_classifiers)
+
+  print("DONE WITH BAGGING")
+
+
  
+  plt.plot(np.arange(500),train_classifiers,color='r',label="Training Data")
+  plt.plot(np.arange(500),test_classifiers,color='g',label="Testing Data")
+  plt.xlabel("T")
+  plt.ylabel("Errors")
+  plt.legend()
+  plt.show()
+  plt.savefig("plot3.pdf", format="pdf",bbox_inches = "tight")
 
 
+print("STARTING ADABOOST")
 test()
+print("MOVING TO BAGGING")
+testBagging()
