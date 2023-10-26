@@ -384,9 +384,9 @@ def testBagging():
   df_train, df_test, att_vals = prepare_data()
 
   train_classifiers = Bagging(df_train,500,att_vals)
-  print(train_classifiers)
+  # print(train_classifiers)
   test_classifiers = Bagging(df_test,500,att_vals)
-  print(test_classifiers)
+  # print(test_classifiers)
 
   print("DONE WITH BAGGING")
 
