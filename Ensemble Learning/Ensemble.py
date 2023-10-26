@@ -370,7 +370,7 @@ def test():
   plt.ylabel("T")
   plt.legend()
   plt.show()
-  plt.savefig("plot1.pdf", format="pdf",bbox_inches = "tight")
+  plt.savefig("Training Data.pdf", format="pdf",bbox_inches = "tight")
 
   plt.plot(stump_errors_train,np.arange(500),color='r', label = 'Training Data')
   plt.plot(stump_errors_test,np.arange(500),color='g', label = 'Testing Data')
@@ -378,7 +378,7 @@ def test():
   plt.ylabel("T")
   plt.legend()
   plt.show()
-  plt.savefig("plot2.pdf", format="pdf",bbox_inches = "tight")
+  plt.savefig("Testing Data.pdf", format="pdf",bbox_inches = "tight")
 
 def testBagging():
   df_train, df_test, att_vals = prepare_data()
@@ -398,10 +398,10 @@ def testBagging():
   plt.ylabel("Errors")
   plt.legend()
   plt.show()
-  plt.savefig("plot3.pdf", format="pdf",bbox_inches = "tight")
+  plt.savefig("Bagging Plot.pdf", format="pdf",bbox_inches = "tight")
 
 
-print("STARTING ADABOOST")
+print("STARTING ADABOOST...")
 test()
-print("MOVING TO BAGGING")
+print("STARTING TO BAGGING...")
 testBagging()
