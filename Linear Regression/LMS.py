@@ -96,7 +96,7 @@ def runbgd():
     train = pd.read_csv("train.csv")
     train.columns =["x1","x2","x3","x4","x5","x6","x7","y"]
     y_train = train["y"]
-    costs,weights = bgd(train,y_train,0.5)
+    costs,weights = bgd(train,y_train,0.0015)
     print("LEARNED WEIGHTS: ", weights)
     plt.plot(costs,np.arange(len(costs)))
     plt.xlabel("Cost")
