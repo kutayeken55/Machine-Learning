@@ -17,12 +17,13 @@ def set_data():
     y_train = np.array([-1 if val == 0 else val for val in y_train])
     y_test = np.array([-1 if val == 0 else val for val in y_test])
 
+    # train["label"] = y_train
     return train,test,y_train,y_test
 
 def standard(x_data,y_data,epoch):
     w = np.zeros(len(x_data.columns))
     for i in range(epoch):
-        shuffled = x_data.sample(frac = 1)
+        x_data = x_data.sample(frac = 1)
         for index,row in x_data.iterrows():
             row_list = row.to_numpy()
             y_i = y_data[index]
