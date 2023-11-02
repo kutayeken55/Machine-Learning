@@ -36,7 +36,7 @@ def averaged(x_data,y_data,epoch):
     w = np.zeros(len(x_data.columns))
     a = np.zeros(len(x_data.columns))
     for i in range(epoch):
-        for index,row in x_data.iterrows():
+        for index, row in x_data.iterrows():
             row_list = row.to_numpy()
             y_i = y_data[index]
             val = y_i * np.dot(w.transpose(),row_list)
@@ -45,6 +45,26 @@ def averaged(x_data,y_data,epoch):
             a = a + w 
     return a,w 
 
+def voted(x_data,y_data,epoch):
+    w_init = np.zeros(len(x_data.columns))
+    m = np.zeros(len(x_data.columns))
+    result = []
+    w_current = w_init
+    for i in range(epoch):
+        for index, row in x_data.iterrows():
+            row_list = row.to_numpy()
+            y_i = y_data[index]
+            val = y_i * np.dot(w_current.transpose(),row_list)
+            if val <= 0:
+                w_next = w_current + y_i * row_list
+                m = m + 1
+                c_current = 1
+                w_current = w_next
+            else:
+                c_current = c_current + 1
+            result.append((w_current,c_current))
+
+    return result           
 
 def predict(x_data,w):
     y_pred = []
@@ -53,24 +73,41 @@ def predict(x_data,w):
         y_pred.append(np.sign(np.dot(w.transpose(),row_list)))
     return y_pred
 
+def predict_vote(x_data,w_c):
+    k = len(w_c)
+    w_list = list(zip(*w_c))[0]
+    c_list = list(zip(*w_c))[1]
+    for i in range(k):
+        # CONTINUE
+        return
+
 
 train,test,y_train,y_test = set_data()
 
-w_std = (standard(train,y_train,10))
-pred_std = np.array(predict(test,w_std))
-similarity_std = np.sum(y_test == pred_std) / len(y_test)
-print("----------STANDARD PERCEPTRON RESULTS:----------")
-print("LEARNED WEIGHT VECTOR: ", w_std)
-print("AVERAGE PREDICTION ERROR ON TEST DATASET: ",1 - similarity_std)
-print("ERROR PERCENTAGE: ",(1 - similarity_std) * 100)
-print("------------------------------------------------")
+# w_std = (standard(train,y_train,10))
+# pred_std = np.array(predict(test,w_std))
+# similarity_std = np.sum(y_test == pred_std) / len(y_test)
+# print("----------STANDARD PERCEPTRON RESULTS:----------")
+# print("LEARNED WEIGHT VECTOR: ", w_std)
+# print("AVERAGE PREDICTION ERROR ON TEST DATASET: ",1 - similarity_std)
+# print("ERROR PERCENTAGE: ",(1 - similarity_std) * 100)
+# print("------------------------------------------------")
 
 
-a_ave,w_ave = averaged(train,y_train,10)
-pred_ave = np.array(predict(test,a_ave))
-similarity_ave = np.sum(y_test == pred_ave) / len(y_test)
-print("----------AVERAGED PERCEPTRON RESULTS:----------")
-print("LEARNED WEIGHT VECTOR: ", w_ave)
-print("AVERAGE PREDICTION ERROR ON TEST DATASET: ",1 - similarity_ave)
-print("ERROR PERCENTAGE: ",(1 - similarity_ave) * 100)
-print("------------------------------------------------")
+# a_ave,w_ave = averaged(train,y_train,10)
+# pred_ave = np.array(predict(test,a_ave))
+# similarity_ave = np.sum(y_test == pred_ave) / len(y_test)
+# print("----------AVERAGED PERCEPTRON RESULTS:----------")
+# print("LEARNED WEIGHT VECTOR: ", w_ave)
+# print("AVERAGE PREDICTION ERROR ON TEST DATASET: ",1 - similarity_ave)
+# print("ERROR PERCENTAGE: ",(1 - similarity_ave) * 100)
+# print("------------------------------------------------")
+
+w_c_vote = voted(train,y_train,10)
+# pred_vote = np.array(predict_vote(test,w_c_vote))
+# similarity_vote = np.sum(y_test == pred_vote) / len(y_test)
+print("----------VOTED PERCEPTRON RESULTS:----------")
+print("WEIGHT VECTORS AND COUNTS: ", w_c_vote)
+# print("AVERAGE PREDICTION ERROR ON TEST DATASET: ",1 - similarity_vote)
+# print("ERROR PERCENTAGE: ",(1 - similarity_vote) * 100)
+print("---------------------------------------------")
