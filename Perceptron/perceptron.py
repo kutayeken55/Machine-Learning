@@ -40,9 +40,10 @@ def predict(x_data,w):
 
 
 train,test,y_train,y_test = set_data()
-w_std = (standard(test,y_test,10))
+w_std = (standard(train,y_train,10))
 pred_std = np.array(predict(test,w_std))
 similarity_std = np.sum(y_test == pred_std) / len(y_test)
 print("----------STANDARD PERCEPTRON RESULTS:----------")
 print("LEARNED WEIGHT VECTOR: ", w_std)
 print("AVERAGE PREDICTION ERROR ON TEST DATASET: ",1 - similarity_std)
+print("PERCENTAGE ERROR: ",(1 - similarity_std) * 100)
