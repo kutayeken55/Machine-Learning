@@ -62,7 +62,7 @@ def voted(x_data,y_data,epoch):
                 w_current = w_next
             else:
                 c_current = c_current + 1
-            result.append((w_current,c_current))
+            result.append((w_current.tolist(),c_current))
 
     return result           
 
@@ -77,9 +77,19 @@ def predict_vote(x_data,w_c):
     k = len(w_c)
     w_list = list(zip(*w_c))[0]
     c_list = list(zip(*w_c))[1]
-    for i in range(k):
-        # CONTINUE
-        return
+    y_pred = []
+    for index, row in x_data.iterrows():
+        res = 0
+        row_list = row.to_numpy()
+        for i in range(k):
+            # CONTINUE
+            c_i = c_list[i]
+            w_i = w_list[i]
+            w_iT  = np.array(w_i).transpose()
+            res += c_i * np.sign(np.dot(w_iT,row_list))
+        y_pred.append(np.sign(res))
+
+    return y_pred
 
 
 train,test,y_train,y_test = set_data()
@@ -104,10 +114,25 @@ train,test,y_train,y_test = set_data()
 # print("------------------------------------------------")
 
 w_c_vote = voted(train,y_train,10)
-# pred_vote = np.array(predict_vote(test,w_c_vote))
-# similarity_vote = np.sum(y_test == pred_vote) / len(y_test)
+seen_first_items = set()
+unique_list = []
+
+for item in w_c_vote:
+    first_item = tuple(item[0])
+    
+    # Check if the first item is already in the set
+    if first_item not in seen_first_items:
+        seen_first_items.add(first_item)
+        unique_list.append(item)
+
+
+
+
+pred_vote = np.array(predict_vote(test,w_c_vote))
+similarity_vote = np.sum(y_test == pred_vote) / len(y_test)
 print("----------VOTED PERCEPTRON RESULTS:----------")
-print("WEIGHT VECTORS AND COUNTS: ", w_c_vote)
-# print("AVERAGE PREDICTION ERROR ON TEST DATASET: ",1 - similarity_vote)
-# print("ERROR PERCENTAGE: ",(1 - similarity_vote) * 100)
+print("WEIGHT VECTORS AND COUNTS: ", (unique_list))
+print("AVERAGE PREDICTION ERROR ON TEST DATASET: ",1 - similarity_vote)
+print("ERROR PERCENTAGE: ",(1 - similarity_vote) * 100)
 print("---------------------------------------------")
+print(len(unique_list))
