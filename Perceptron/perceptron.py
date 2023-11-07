@@ -50,19 +50,18 @@ def voted(x_data,y_data,epoch):
     m = np.zeros(len(x_data.columns))
     result = []
     w_current = w_init
+    c_current = 1
     for i in range(epoch):
         for index, row in x_data.iterrows():
             row_list = row.to_numpy()
             y_i = y_data[index]
             val = y_i * np.dot(w_current.transpose(),row_list)
             if val <= 0:
-                w_next = w_current + y_i * row_list
-                m = m + 1
+                result.append((w_current.tolist(),c_current))
+                w_current = w_current + y_i * row_list
                 c_current = 1
-                w_current = w_next
             else:
                 c_current = c_current + 1
-            result.append((w_current.tolist(),c_current))
 
     return result           
 
@@ -82,7 +81,6 @@ def predict_vote(x_data,w_c):
         res = 0
         row_list = row.to_numpy()
         for i in range(k):
-            # CONTINUE
             c_i = c_list[i]
             w_i = w_list[i]
             w_iT  = np.array(w_i).transpose()
@@ -93,46 +91,38 @@ def predict_vote(x_data,w_c):
 
 
 train,test,y_train,y_test = set_data()
+standard_res = []
+w_sum = [0,0,0,0]
+errors = []
+for i in range(99):
+    w_std = (standard(train,y_train,10))
+    pred_std = np.array(predict(test,w_std))
+    similarity_std = np.sum(y_test == pred_std) / len(y_test)
+    errors.append(similarity_std)
+    w_sum += w_std
 
-# w_std = (standard(train,y_train,10))
-# pred_std = np.array(predict(test,w_std))
-# similarity_std = np.sum(y_test == pred_std) / len(y_test)
-# print("----------STANDARD PERCEPTRON RESULTS:----------")
-# print("LEARNED WEIGHT VECTOR: ", w_std)
-# print("AVERAGE PREDICTION ERROR ON TEST DATASET: ",1 - similarity_std)
-# print("ERROR PERCENTAGE: ",(1 - similarity_std) * 100)
-# print("------------------------------------------------")
+print("----------STANDARD PERCEPTRON RESULTS:----------")
+print("LEARNED WEIGHT VECTOR: ", w_sum/100)
+print("AVERAGE PREDICTION ERROR ON TEST DATASET: ",1 - sum(errors)/100)
+print("ERROR PERCENTAGE: ",(1 - sum(errors)/100) * 100)
+print("------------------------------------------------")
 
 
-# a_ave,w_ave = averaged(train,y_train,10)
-# pred_ave = np.array(predict(test,a_ave))
-# similarity_ave = np.sum(y_test == pred_ave) / len(y_test)
-# print("----------AVERAGED PERCEPTRON RESULTS:----------")
-# print("LEARNED WEIGHT VECTOR: ", w_ave)
-# print("AVERAGE PREDICTION ERROR ON TEST DATASET: ",1 - similarity_ave)
-# print("ERROR PERCENTAGE: ",(1 - similarity_ave) * 100)
-# print("------------------------------------------------")
+a_ave,w_ave = averaged(train,y_train,10)
+pred_ave = np.array(predict(test,a_ave))
+similarity_ave = np.sum(y_test == pred_ave) / len(y_test)
+print("----------AVERAGED PERCEPTRON RESULTS:----------")
+print("LEARNED WEIGHT VECTOR: ", w_ave)
+print("AVERAGE PREDICTION ERROR ON TEST DATASET: ",1 - similarity_ave)
+print("ERROR PERCENTAGE: ",(1 - similarity_ave) * 100)
+print("------------------------------------------------")
 
 w_c_vote = voted(train,y_train,10)
-seen_first_items = set()
-unique_list = []
-
-for item in w_c_vote:
-    first_item = tuple(item[0])
-    
-    # Check if the first item is already in the set
-    if first_item not in seen_first_items:
-        seen_first_items.add(first_item)
-        unique_list.append(item)
-
-
-
-
 pred_vote = np.array(predict_vote(test,w_c_vote))
 similarity_vote = np.sum(y_test == pred_vote) / len(y_test)
 print("----------VOTED PERCEPTRON RESULTS:----------")
-print("WEIGHT VECTORS AND COUNTS: ", (unique_list))
+print("WEIGHT VECTORS AND COUNTS: ", (w_c_vote))
 print("AVERAGE PREDICTION ERROR ON TEST DATASET: ",1 - similarity_vote)
 print("ERROR PERCENTAGE: ",(1 - similarity_vote) * 100)
 print("---------------------------------------------")
-print(len(unique_list))
+print(len(w_c_vote))
