@@ -1,9 +1,11 @@
 import pandas as pd
 import numpy as np
 
-
 # Three different versions of perceptron will be implemented.
 # 1. Standard 2. Voted 3. Average
+# DATE: Nov 7, 2023
+# Author: Kutay Eken
+
 def set_data():
     train = pd.read_csv("train.csv", header=None)
     test = pd.read_csv("test.csv", header=None)
@@ -121,8 +123,10 @@ w_c_vote = voted(train,y_train,10)
 pred_vote = np.array(predict_vote(test,w_c_vote))
 similarity_vote = np.sum(y_test == pred_vote) / len(y_test)
 print("----------VOTED PERCEPTRON RESULTS:----------")
-print("WEIGHT VECTORS AND COUNTS: ", (w_c_vote))
+print("WEIGHT VECTORS: ", [tup[0] for tup in w_c_vote])
+print("COUNTS: ", [tup[1] for tup in w_c_vote])
 print("AVERAGE PREDICTION ERROR ON TEST DATASET: ",1 - similarity_vote)
 print("ERROR PERCENTAGE: ",(1 - similarity_vote) * 100)
 print("---------------------------------------------")
-print(len(w_c_vote))
+
+
