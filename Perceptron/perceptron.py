@@ -96,7 +96,7 @@ train,test,y_train,y_test = set_data()
 standard_res = []
 w_sum = [0,0,0,0]
 errors = []
-for i in range(99):
+for i in range(100):
     w_std = (standard(train,y_train,10))
     pred_std = np.array(predict(test,w_std))
     similarity_std = np.sum(y_test == pred_std) / len(y_test)
