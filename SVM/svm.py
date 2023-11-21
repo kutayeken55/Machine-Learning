@@ -19,13 +19,16 @@ def set_data():
 
     return train,test,y_train,y_test
 
-def primal(x_data,y_data,epoch,c):
+def primal(x_data,y_data,epoch,c,schedule):
     w =  np.zeros(len(x_data.columns)) # initialize weights
-    gamma = 0.1
+    gamma = 0.01
     a = 0.5
     N = len(x_data.index)
     for t in range(epoch):
-        gamma_t = gamma / ((1 + ((gamma * t) / a)))
+        if schedule == 0:
+            gamma_t = gamma / ((1 + ((gamma * t) / a)))
+        else:
+            gamma_t = gamma / (1 + t)
         x_data = x_data.sample(frac = 1) # shuffle the data
         for index,row in x_data.iterrows():
             x_i = row.to_numpy()
@@ -45,17 +48,38 @@ def predict(x_data,w):
         y_pred.append(np.sign(np.dot(w.transpose(),row_list)))
     return y_pred
 
-train,test,y_train,y_test = set_data()
-print("-------------------- QUESTION 2 --------------------")
-c_list = [(100/873), (500/873), (700/873)]
-for c in c_list:
-    print("C = ", c)
-    w = primal(train,y_train,100,c)
-    # PREDICT TEST DATA
-    predictions_test = np.array(predict(test,w))
-    error_test = np.sum(y_test != predictions_test) / len(y_test)
-    # PREDICT TRAINING DATA
-    predictions_train = np.array(predict(train,w))
-    error_train = np.sum(y_train != predictions_train) / len(y_train)
-    print("TRAINING ERROR: ", error_train)
-    print("TESTING ERROR: ", error_test)
+def runq2():
+    train,test,y_train,y_test = set_data()
+    print("-------------------- QUESTION 2A --------------------")
+    c_list = [(100/873), (500/873), (700/873)]
+    for c in c_list:
+        print("C = ", c)
+        w_a = primal(train,y_train,100,c,0)
+        # PREDICT TEST DATA
+        predictions_test_a = np.array(predict(test,w_a))
+        error_test_a = np.sum(y_test != predictions_test_a) / len(y_test)
+        # PREDICT TRAINING DATA
+        predictions_train_a = np.array(predict(train,w_a))
+        error_train_a = np.sum(y_train != predictions_train_a) / len(y_train)
+        print("TRAINING ERROR: ", error_train_a)
+        print("TESTING ERROR: ", error_test_a)
+
+    print("-------------------- QUESTION 2B --------------------")
+    for c in c_list:
+        print("C = ", c)
+        w_b = primal(train,y_train,100,c,1)
+        # PREDICT TEST DATA
+        predictions_test_b = np.array(predict(test,w_b))
+        error_test_b = np.sum(y_test != predictions_test_b) / len(y_test)
+        # PREDICT TRAINING DATA
+        predictions_train_b = np.array(predict(train,w_b))
+        error_train_b = np.sum(y_train != predictions_train_b) / len(y_train)
+        print("TRAINING ERROR: ", error_train_b)
+        print("TESTING ERROR: ", error_test_b)
+
+    print("-------------------- QUESTION 2C --------------------")
+    print("WEIGHT DIFFERENCE: ", w_a - w_b)
+    print("TRAINING ERROR DIFFERENCE: ", error_train_a - error_train_b)
+    print("TESTING ERROR DIFFERENCE: ", error_test_a - error_test_b)
+
+runq2()
