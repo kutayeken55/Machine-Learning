@@ -19,7 +19,6 @@ def set_data():
     y_train = np.array([-1 if val == 0 else val for val in y_train])
     y_test = np.array([-1 if val == 0 else val for val in y_test])
 
-    # train["label"] = y_train
     return train,test,y_train,y_test
 
 def standard(x_data,y_data,epoch):
