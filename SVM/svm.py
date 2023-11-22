@@ -3,7 +3,11 @@
 
 import numpy as np
 import pandas as pd
+import math
+from numpy.linalg import norm
 from scipy.optimize import minimize
+from tqdm.auto import tqdm
+import pickle
 
 def set_data():
     train = pd.read_csv("train.csv", header=None)
@@ -52,17 +56,15 @@ def primal_predict(x_data,w):
 def equalityConstraint(alphas,y_data):
     return np.sum(np.multiply(alphas,y_data)) # = 0 EQUALITY CONSTRAINT
 
-def dual_objective(alphas,x_data,y_data):
-    dot_products = np.dot(x_data,x_data.transpose())
-    yy = np.outer(y_data,y_data)
+def dual_objective(alphas,xTx,yy):
     aa = np.outer(alphas, alphas)
-    return 0.5 * (np.sum(yy * aa * dot_products)) - np.sum(alphas)
+    return 0.5 * (np.sum(yy * aa * xTx)) - np.sum(alphas)
 
-def find_optimal(x_data,c,y_data):
+def find_optimal(x_data,c,y_data,xTx,yy):
     init_guess = np.zeros(len(x_data.index))
     cons = {'type':'eq', 'fun': equalityConstraint, 'args': (y_data,)}
     bnds = [(0,c) for i in range(len(x_data.index))]
-    result = minimize(dual_objective, init_guess, args=(x_data,y_data),bounds=bnds, constraints=cons, method='SLSQP')
+    result = minimize(dual_objective, init_guess, args=(xTx,yy),bounds=bnds, constraints=cons, method='SLSQP')
 
     return result.x
 
@@ -97,26 +99,59 @@ def predict_dual(weights,bias,x_data):
     
     return y_pred
 
-def runq3a():
-    print("-------------------- QUESTION 3A --------------------")
-    train,test,y_train,y_test = set_data() 
-    c_list = [(100/873), (500/873), (700/873)]  
-    for c in c_list:
-        optimal_alpha = find_optimal(train,c,y_train)
-        learned_w = find_learned_weights(optimal_alpha,y_train,train) 
-        learned_b = find_bias(learned_w,train,y_train)
-        predictions = predict_dual(learned_w,learned_b,test)
-        error_test = np.sum(y_test != predictions) / len(y_test)
-        predictions_train = predict_dual(learned_w,learned_b,train)
-        error_train = np.sum(y_train != predictions_train) / len(y_train)
-        print("C: ", c)
-        print("WEIGHTS: ", learned_w)
-        print("BIAS: ", learned_b)
+def findSV(alphas,x_data,y_data):
+    sv_list = []
+    sv_alphas = []
+    for i in range(len(alphas)):
+        alpha = alphas[i]
+        if alpha > 0: # Support Vector
+            sv_alphas.append(alpha)
+            x_val = x_data.iloc[i,:].tolist()
+            y_val = y_data[i]
+            sv_list.append([x_val,y_val])
+    return sv_list, sv_alphas
 
-        print("TESTING ERROR: ", error_test)
-        print("TRAINING ERROR: ", error_train)
-        print(c_list.index(c))
+def predict_kernel(alpha_sv,bias,support_vector,gamma,x_data):
+    y_pred = []
+    for index,row in x_data.iterrows():
+        x_new = row.to_numpy()
+        pred = 0
+        for i in range(len(support_vector)):
+            sv = support_vector[i]
+            x_sv = sv[0]
+            y_sv = sv[1]
+            pred += alpha_sv[i] * y_sv * gaussian(x_new,x_sv,gamma) + bias
+        y_pred.append(np.sign(pred))
+    return y_pred
 
+def gaussian(x_i,x_j,gamma):
+    diff_norm = norm(x_i - x_j) ** 2
+    val =  - diff_norm / gamma
+    return math.exp(val)
+
+def find_optimal_kernel(x_data,c,y_data,gamma):
+    init_guess = np.zeros(len(x_data.index))
+    cons = {'type':'eq', 'fun': equalityConstraint, 'args': (y_data,)}
+    bnds = [(0,c) for i in range(len(x_data.index))]
+    result = minimize(kernel_objective, init_guess, args=(x_data,y_data,gamma),bounds=bnds, constraints=cons, method='SLSQP')
+
+    return result.x
+
+def kernel_objective(alphas,x_data,y_data,gamma):
+    x_data = x_data.to_numpy()
+    # kernel_arr = np.zeros((len(x_data.index), len(x_data.index)))
+    # for i,rowi in x_data.iterrows():
+    #     x_i = rowi.to_numpy()
+    #     for j,rowj in x_data.iterrows():
+    #         x_j = rowj.to_numpy()
+    #         kernel_arr[i][j] = gaussian(x_i,x_j,gamma)
+
+    sum_val = np.sum((x_data[:, None] - x_data) ** 2, axis=-1)
+    kernel_arr = np.exp(- sum_val / gamma)
+
+    yy = np.outer(y_data,y_data)
+    aa = np.outer(alphas, alphas)
+    return 0.5 * (np.sum(yy * aa * kernel_arr)) - np.sum(alphas)
 
 def runq2():
     train,test,y_train,y_test = set_data()
@@ -154,5 +189,113 @@ def runq2():
     print("TRAINING ERROR DIFFERENCE: ", error_train_a - error_train_b)
     print("TESTING ERROR DIFFERENCE: ", error_test_a - error_test_b)
 
-runq2()
+def runq3a():
+    print("-------------------- QUESTION 3A --------------------")
+    train,test,y_train,y_test = set_data() 
+    c_list = [(100/873), (500/873), (700/873)]  
+    xTx =  np.zeros((872, 872))
+    yy = np.outer(y_train,y_train)
+    for i,rowi in (train.iterrows()):
+        for j,rowj in train.iterrows():
+            xTx[i][j] = (np.matmul(rowi.to_numpy().transpose(),rowj.to_numpy()))
+  
+    for c in tqdm(c_list):
+        optimal_alpha = find_optimal(train,c,y_train,xTx,yy)
+        learned_w = find_learned_weights(optimal_alpha,y_train,train) 
+        learned_b = find_bias(learned_w,train,y_train)
+        predictions = predict_dual(learned_w,learned_b,test)
+        error_test = np.sum(y_test != predictions) / len(y_test)
+        predictions_train = predict_dual(learned_w,learned_b,train)
+        error_train = np.sum(y_train != predictions_train) / len(y_train)
+        print("C: ", c)
+        print("WEIGHTS: ", learned_w)
+        print("BIAS: ", learned_b)
+        print("TESTING ERROR: ", error_test)
+        print("TRAINING ERROR: ", error_train)
+
+def runq3b():
+    print("-------------------- QUESTION 3B --------------------")
+    train,test,y_train,y_test = set_data() 
+    c_list = [(100/873), (500/873), (700/873)]  
+    gamma_vals = [0.1,0.5,1,5,100]
+    support_vectors = []
+    q3c_arr1 = []
+    q3c_arr2 = []
+    q3c_arr3 = []
+
+    for gamma in gamma_vals:
+        for c in tqdm(c_list, unit='value'):
+            optimal_alpha = find_optimal_kernel(train,c,y_train,gamma)
+            support_vectors,sv_alphas = findSV(optimal_alpha,train,y_train)
+            if c == (100/873):
+                q3c_arr1.append(support_vectors)
+            elif c == (500/873):
+                q3c_arr2.append(support_vectors)
+            else:
+                q3c_arr3.append(support_vectors)
+
+            learned_w = find_learned_weights(optimal_alpha,y_train,train) 
+            learned_b = find_bias(learned_w,train,y_train)
+            predictions = predict_kernel(sv_alphas,learned_b,support_vectors,gamma,test)
+            error_test = np.sum(y_test != predictions) / len(y_test)
+            predictions_train = predict_kernel(sv_alphas,learned_b,support_vectors,gamma,train)
+            error_train = np.sum(y_train != predictions_train) / len(y_train)
+            print("C: ", c)
+            print("GAMMA: ", gamma)
+            print("TESTING ERROR: ", error_test)
+            print("TRAINING ERROR: ", error_train)
+
+            
+
+    return q3c_arr1, q3c_arr2, q3c_arr3
+    
+def runq3c(arr):
+    print("-------------------- QUESTION 3C --------------------")
+    sv_01 = arr[0]
+    sv_05 = arr[1]
+    sv_1 = arr[2]
+    sv_5 = arr[3]
+    sv_100 = arr[4]
+
+    common_0105 = len([item for item in sv_01 if item in sv_05])
+    common_011 = len([item for item in sv_01 if item in sv_1])
+    common_015 = len([item for item in sv_01 if item in sv_5])
+    common_01100 = len([item for item in sv_01 if item in sv_100])
+    common_051 = len([item for item in sv_05 if item in sv_1])
+    common_055 = len([item for item in sv_05 if item in sv_5])
+    common_05100 = len([item for item in sv_05 if item in sv_100])
+    common_15 = len([item for item in sv_1 if item in sv_5])
+    common_1100 = len([item for item in sv_1 if item in sv_100])
+    common_5100 = len([item for item in sv_5 if item in sv_100])
+
+    print(common_0105)
+    print(common_011)
+    print(common_015)
+    print(common_01100)
+    print(common_051)
+    print(common_055)
+    print(common_05100)
+    print(common_15)
+    print(common_1100)
+    print(common_5100)
+
+# train,test,y_train,y_test = set_data() 
+# res = [[0 for j in range(len(train.index))] for i in range(len(train.index))]
+# for i,rowi in tqdm(train.iterrows()):
+#     for j,rowj in train.iterrows():
+#         res[i][j] = (np.matmul(rowi.transpose(),rowj))
+
+# yy = np.outer(y_train,y_train)
+
+# print(np.sum(yy * res))
+# runq2()
 runq3a()
+# q3_arr1, q3_arr2, q3_arr3 = runq3b()
+# file1 = open('important1','wb')
+# file2 = open('important2','wb')
+# file3 = open('important3','wb')
+# pickle.dump(q3_arr1,file1)
+# pickle.dump(q3_arr2,file2)
+# pickle.dump(q3_arr3,file3)
+
+# runq3c(q3_arr)
