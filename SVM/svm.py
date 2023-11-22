@@ -3,6 +3,7 @@
 
 import numpy as np
 import pandas as pd
+from scipy.optimize import minimize
 
 def set_data():
     train = pd.read_csv("train.csv", header=None)
@@ -41,12 +42,81 @@ def primal(x_data,y_data,epoch,c,schedule):
     
     return w
 
-def predict(x_data,w):
+def primal_predict(x_data,w):
     y_pred = []
     for index, row in x_data.iterrows():
         row_list = row.to_numpy()
         y_pred.append(np.sign(np.dot(w.transpose(),row_list)))
     return y_pred
+
+def equalityConstraint(alphas,y_data):
+    return np.sum(np.multiply(alphas,y_data)) # = 0 EQUALITY CONSTRAINT
+
+def dual_objective(alphas,x_data,y_data):
+    dot_products = np.dot(x_data,x_data.transpose())
+    yy = np.outer(y_data,y_data)
+    aa = np.outer(alphas, alphas)
+    return 0.5 * (np.sum(yy * aa * dot_products)) - np.sum(alphas)
+
+def find_optimal(x_data,c,y_data):
+    init_guess = np.zeros(len(x_data.index))
+    cons = {'type':'eq', 'fun': equalityConstraint, 'args': (y_data,)}
+    bnds = [(0,c) for i in range(len(x_data.index))]
+    result = minimize(dual_objective, init_guess, args=(x_data,y_data),bounds=bnds, constraints=cons, method='SLSQP')
+
+    return result.x
+
+def find_learned_weights(optimal_alphas, y_data,x_data):
+    w = np.zeros(len(x_data.columns))
+    for index,row in x_data.iterrows():
+        x_i = row.to_numpy()
+        y_i = y_data[index]
+        a_i = optimal_alphas[index]
+        arr = x_i * a_i * y_i
+        w = np.add(w,arr)
+
+    return w
+
+def find_bias(weights,x_data,y_data):
+    b_arr = np.zeros(len(x_data.index))
+    wT = weights.transpose()
+    for index,row in x_data.iterrows():
+        y_j = y_data[index]
+        x_j = row.to_numpy()
+        b_arr[index] = y_j * np.dot(wT,x_j)
+
+    b = sum(b_arr) / len(b_arr)
+    return b
+
+def predict_dual(weights,bias,x_data):
+    y_pred = []
+    for index, row in x_data.iterrows():
+        row_list = row.to_numpy()
+        pred = np.sign(np.dot(weights.transpose(),row_list) + bias)
+        y_pred.append(pred)
+    
+    return y_pred
+
+def runq3a():
+    print("-------------------- QUESTION 3A --------------------")
+    train,test,y_train,y_test = set_data() 
+    c_list = [(100/873), (500/873), (700/873)]  
+    for c in c_list:
+        optimal_alpha = find_optimal(train,c,y_train)
+        learned_w = find_learned_weights(optimal_alpha,y_train,train) 
+        learned_b = find_bias(learned_w,train,y_train)
+        predictions = predict_dual(learned_w,learned_b,test)
+        error_test = np.sum(y_test != predictions) / len(y_test)
+        predictions_train = predict_dual(learned_w,learned_b,train)
+        error_train = np.sum(y_train != predictions_train) / len(y_train)
+        print("C: ", c)
+        print("WEIGHTS: ", learned_w)
+        print("BIAS: ", learned_b)
+
+        print("TESTING ERROR: ", error_test)
+        print("TRAINING ERROR: ", error_train)
+        print(c_list.index(c))
+
 
 def runq2():
     train,test,y_train,y_test = set_data()
@@ -56,11 +126,12 @@ def runq2():
         print("C = ", c)
         w_a = primal(train,y_train,100,c,0)
         # PREDICT TEST DATA
-        predictions_test_a = np.array(predict(test,w_a))
+        predictions_test_a = np.array(primal_predict(test,w_a))
         error_test_a = np.sum(y_test != predictions_test_a) / len(y_test)
         # PREDICT TRAINING DATA
-        predictions_train_a = np.array(predict(train,w_a))
+        predictions_train_a = np.array(primal_predict(train,w_a))
         error_train_a = np.sum(y_train != predictions_train_a) / len(y_train)
+        print("LEARNED WEIGHTS: ", w_a)
         print("TRAINING ERROR: ", error_train_a)
         print("TESTING ERROR: ", error_test_a)
 
@@ -69,11 +140,12 @@ def runq2():
         print("C = ", c)
         w_b = primal(train,y_train,100,c,1)
         # PREDICT TEST DATA
-        predictions_test_b = np.array(predict(test,w_b))
+        predictions_test_b = np.array(primal_predict(test,w_b))
         error_test_b = np.sum(y_test != predictions_test_b) / len(y_test)
         # PREDICT TRAINING DATA
-        predictions_train_b = np.array(predict(train,w_b))
+        predictions_train_b = np.array(primal_predict(train,w_b))
         error_train_b = np.sum(y_train != predictions_train_b) / len(y_train)
+        print("LEARNED WEIGHTS: ", w_b)
         print("TRAINING ERROR: ", error_train_b)
         print("TESTING ERROR: ", error_test_b)
 
@@ -83,3 +155,4 @@ def runq2():
     print("TESTING ERROR DIFFERENCE: ", error_test_a - error_test_b)
 
 runq2()
+runq3a()
