@@ -100,15 +100,18 @@ def predict_dual(weights,bias,x_data):
     return y_pred
 
 def findSV(alphas,x_data,y_data):
-    sv_list = []
-    sv_alphas = []
-    for i in range(len(alphas)):
-        alpha = alphas[i]
-        if alpha > 0: # Support Vector
-            sv_alphas.append(alpha)
-            x_val = x_data.iloc[i,:].tolist()
-            y_val = y_data[i]
-            sv_list.append([x_val,y_val])
+    indices = np.where(alphas > 0)[0]
+    x_vals = x_data.iloc[indices].to_numpy().tolist()
+    y_vals = y_data[indices]
+    sv_list = list(zip(x_vals,y_vals))
+    sv_alphas = alphas[indices]
+    # for i in range(len(alphas)):
+    #     alpha = alphas[i]
+    #     if alpha > 0: # Support Vector
+    #         sv_alphas.append(alpha)
+    #         x_val = x_data.iloc[i,:].tolist()
+    #         y_val = y_data[i]
+    #         sv_list.append((x_val,y_val))
     return sv_list, sv_alphas
 
 def predict_kernel(alpha_sv,bias,support_vector,gamma,x_data):
@@ -216,9 +219,12 @@ def runq3a():
 def runq3b():
     print("-------------------- QUESTION 3B --------------------")
     train,test,y_train,y_test = set_data() 
+    train = train.head(100)
+    y_train = y_train[:100]
+    test = test.head(100)
+    y_test = y_test[:100]
     c_list = [(100/873), (500/873), (700/873)]  
     gamma_vals = [0.1,0.5,1,5,100]
-    support_vectors = []
     q3c_arr1 = []
     q3c_arr2 = []
     q3c_arr3 = []
@@ -236,6 +242,7 @@ def runq3b():
 
             learned_w = find_learned_weights(optimal_alpha,y_train,train) 
             learned_b = find_bias(learned_w,train,y_train)
+            print("W: ",  learned_w)
             predictions = predict_kernel(sv_alphas,learned_b,support_vectors,gamma,test)
             error_test = np.sum(y_test != predictions) / len(y_test)
             predictions_train = predict_kernel(sv_alphas,learned_b,support_vectors,gamma,train)
@@ -289,13 +296,5 @@ def runq3c(arr):
 
 # print(np.sum(yy * res))
 # runq2()
-runq3a()
-# q3_arr1, q3_arr2, q3_arr3 = runq3b()
-# file1 = open('important1','wb')
-# file2 = open('important2','wb')
-# file3 = open('important3','wb')
-# pickle.dump(q3_arr1,file1)
-# pickle.dump(q3_arr2,file2)
-# pickle.dump(q3_arr3,file3)
-
-# runq3c(q3_arr)
+# runq3a()
+runq3b()
