@@ -219,10 +219,6 @@ def runq3a():
 def runq3b():
     print("-------------------- QUESTION 3B --------------------")
     train,test,y_train,y_test = set_data() 
-    train = train.head(100)
-    y_train = y_train[:100]
-    test = test.head(100)
-    y_test = y_test[:100]
     c_list = [(100/873), (500/873), (700/873)]  
     gamma_vals = [0.1,0.5,1,5,100]
     q3c_arr1 = []
@@ -251,50 +247,37 @@ def runq3b():
             print("GAMMA: ", gamma)
             print("TESTING ERROR: ", error_test)
             print("TRAINING ERROR: ", error_train)
-
-            
-
-    return q3c_arr1, q3c_arr2, q3c_arr3
     
-def runq3c(arr):
+def runq3c():
     print("-------------------- QUESTION 3C --------------------")
-    sv_01 = arr[0]
-    sv_05 = arr[1]
-    sv_1 = arr[2]
-    sv_5 = arr[3]
-    sv_100 = arr[4]
+    train,test,y_train,y_test = set_data() 
+    c_list = [(100/873), (500/873), (700/873)]  
+    gamma_vals = [0.1,0.5,1,5,100]
+    all_svs = [0] * 5
 
-    common_0105 = len([item for item in sv_01 if item in sv_05])
-    common_011 = len([item for item in sv_01 if item in sv_1])
-    common_015 = len([item for item in sv_01 if item in sv_5])
-    common_01100 = len([item for item in sv_01 if item in sv_100])
-    common_051 = len([item for item in sv_05 if item in sv_1])
-    common_055 = len([item for item in sv_05 if item in sv_5])
-    common_05100 = len([item for item in sv_05 if item in sv_100])
-    common_15 = len([item for item in sv_1 if item in sv_5])
-    common_1100 = len([item for item in sv_1 if item in sv_100])
-    common_5100 = len([item for item in sv_5 if item in sv_100])
+    for gamma in gamma_vals:
+        print("GAMMA: ", gamma)
+        i = gamma_vals.index(gamma)
+        for c in tqdm(c_list, unit='value'):
+            print("C: ", c)
+            optimal_alpha = find_optimal_kernel(train,c,y_train,gamma)
+            support_vectors,sv_alphas = findSV(optimal_alpha,train,y_train)
+            if c == (500/873):
+                all_svs[i] = support_vectors
+            print("SV COUNT: ", len(support_vectors))
+    
+    sv01 = set(all_svs[0])
+    sv05 = set(all_svs[1])
+    sv1 = set(all_svs[2])
+    sv5 = set(all_svs[3])
+    sv100 = set(all_svs[4])
 
-    print(common_0105)
-    print(common_011)
-    print(common_015)
-    print(common_01100)
-    print(common_051)
-    print(common_055)
-    print(common_05100)
-    print(common_15)
-    print(common_1100)
-    print(common_5100)
+    print("0.1 - 0.5: ", len(sv01.intersection(sv05)))
+    print("0.5 - 1: ",len(sv05.intersection(sv1)))
+    print("1 - 5: ", len(sv1.intersection(sv5)))
+    print("5 - 100: ", len(sv5.intersection(sv100)))
 
-# train,test,y_train,y_test = set_data() 
-# res = [[0 for j in range(len(train.index))] for i in range(len(train.index))]
-# for i,rowi in tqdm(train.iterrows()):
-#     for j,rowj in train.iterrows():
-#         res[i][j] = (np.matmul(rowi.transpose(),rowj))
-
-# yy = np.outer(y_train,y_train)
-
-# print(np.sum(yy * res))
-# runq2()
-# runq3a()
-# runq3b()
+runq2()
+runq3a()
+runq3b()
+runq3c()
