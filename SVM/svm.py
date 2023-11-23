@@ -297,4 +297,4 @@ def runq3c(arr):
 # print(np.sum(yy * res))
 # runq2()
 # runq3a()
-runq3b()
+# runq3b()
