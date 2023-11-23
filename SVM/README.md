@@ -3,5 +3,5 @@
 - svm.py file contains primal and dual SVM implementations
 - run 'chmod u+_x run.sh' command to make 'run.sh' file executable
 - run './run.sh' command to run the 'run.sh' file
-- results for all three algorithms will be printed to the console
+- results for all questions will be printed to the console
 
