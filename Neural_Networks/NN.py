@@ -1,3 +1,4 @@
+import random
 import pandas as pd
 import numpy as np
 import torch
@@ -6,15 +7,6 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 import matplotlib.pyplot as plt
 
-# class SimpleDataset(Dataset):
-#     def __init__(self,X,y):
-#         super(SimpleDataset, self).__init__()
-#         self.X = X
-#         self.y = y
-#     def __getitem__(self,index):
-#         return self.X[index,:], self.y[index,:]
-#     def __len__(self,):
-#         return self.X.shape[0]
     
 class NeuralNetwork(nn.Module):
     def __init__(self, activation_function, width, depth,func_name):
@@ -22,6 +14,7 @@ class NeuralNetwork(nn.Module):
         in_dim = 4
         layers_list = []
 
+        # input layer
         layers_list.append(nn.Linear(in_dim,width))
         layers_list.append(activation_function)
 
@@ -48,8 +41,8 @@ class NeuralNetwork(nn.Module):
     def init_RELU_weights(self):
         for layer in self.modules():
             if isinstance(layer,nn.Linear):
-                nn.init.kaiming_normal_(layer.weight)
-                nn.init.zeros_(layer.bias)
+                nn.init.kaiming_normal_(layer.weight, mode='fan_in', nonlinearity='relu')
+                nn.init.constant_(layer.bias,0)
 
     def forward(self, X):
         output = X
@@ -73,7 +66,6 @@ def set_data():
 
     return train.values,test.values,y_train,y_test
 
-# def run3e(x_train,y_train):
 def run2e():
     train,test,y_train,y_test = set_data() 
     train = torch.FloatTensor(train)
@@ -86,24 +78,22 @@ def run2e():
     activation_fun = ["relu", "tanh"]
     depths = [3,5,9]
     widths = [5,10,25,50,100]
-    # model = NeuralNetwork(nn.Tanh(),5,3)
-    # optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
-
-    model = NeuralNetwork(nn.Tanh(),5,3,'tanh')
+    model = NeuralNetwork(nn.Tanh(),3,3,'tanh')
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
     for epoch in range(num_epoch):
-        y_pred = model(train).flatten()
-        loss_val = criterion(y_pred,y_train)
-        optimizer.zero_grad()
-        loss_val.backward()
-        optimizer.step()
+        for item in train:
+            optimizer.zero_grad()
+            y_pred = model(item).flatten()
+            loss_val = criterion(y_pred,y_train)
+            loss_val.backward()
+            optimizer.step()
 
     with torch.no_grad():
         predictions = model(train)
+        print(predictions)
         error = np.sum(y_train.tolist() != predictions.tolist()) / len(y_train.numpy())
         print("ERROR: ", error)
-
 
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
@@ -127,7 +117,10 @@ def createq2NN(hidden_unit):
 
     for (node_var,node_layer) in node_layer_key:
         node_edge = []
-        node_sub = int(node_var[-1])
+        if node_var[0] == 'x':
+            node_sub = int(node_var[-1])
+        else:
+            node_sub = int(node_var[-3])
         if node_layer < 2:
             edge_num = hidden_unit - 1
         else:
@@ -202,46 +195,87 @@ def forward_pass(unknown_nodes, neural_net,edge_val,var_val):
 
     return var_val
 
+def isOutPutLayer(weight):
+    return weight[-1] == str(3)
 
+def findStartingNodeGivenEdge(edge,endPoint,neural_net):
+    for node in list(neural_net.keys()):
+        if (edge,endPoint) in neural_net[node]:
+            return node[0]
 
-# def back_propagation(neural_net):
-#     node_layer_list = neural_net.keys()
-#     node_names = [node_layer[0] for node_layer in node_layer_list]
-#     node_layers = [node_layer[1] for node_layer in node_layer_list]
+def findDependents(neural_net, given_edge):
+    result = []
+    for node in list(neural_net.keys()):
+        for (edge,endPoint) in neural_net[node]:
+            if edge == given_edge:
+                result.append(endPoint)
 
-    
+    return list(set(result))
 
+def computeOutPutLayer(edge,neural_net,delta,var_val,edge_val):
+    arrived_from = findStartingNodeGivenEdge(edge,'y',neural_net)
+    node_val = var_val[arrived_from]
+    return delta * node_val
 
+def back_propagation(x0,x1,x2,y,y_star,var_val, edge_val, neural_net):
+    # square loss function
+    # L_func = 0.5 * (y - y_star)**2
 
+    # delta L_func over delta y
+    # delta_Ly = (y - y_star)
+    # derivatives = []
 
-    
+    # for edge in list(edge_val.keys()):
+    #     if isOutPutLayer(edge):
+    #         # print(edge)
+    #         # print()
+    #         # print(computeOutPutLayer(edge,neural_net,delta_Ly,var_val,edge_val))
+    #         derivatives.append(computeOutPutLayer(edge,neural_net,delta_Ly,var_val,edge_val))
+    #     else:
+    #         dependent_nodes = findDependents(neural_net,edge)
+    #         derivatives.append(computeHiddenLayer(edge,neural_net,delta_Ly,var_val,edge_val,dependent_nodes))
 
+    ## FOLLOWING SLIDES BELOW:
+    for edge in list(edge_val.keys()):
+        h = int(edge[-1])
+        n = int(edge[-3])
+        m = int(edge[-4])
+        starting_node = (f"z_{n}_{h}",h)
+        ending_node = "y"
+        path_list = find_all_paths("z_0_2",ending_node,neural_net,["z_0_2"],[])
+        print(path_list)
 
-
-
-
-
+def find_all_paths(starting_node,ending_node,neural_net,current_path,all_paths):
+    if (starting_node == ending_node):
+        current_path.append(ending_node)
+        all_paths.append(current_path)
+        return current_path
+    else:
+        if starting_node[0] == 'x':
+            layer = 0
+        else:
+            layer = int(starting_node[-1])
+        for (edge,dest) in neural_net[(starting_node,layer)]:
+            current_path.append(find_all_paths(dest,ending_node,neural_net,current_path,all_paths))
 
 # def run2a():
+# vars = ["x0","x1","x2","z_0_1","z_0_2"]
+# vals = [1,1,1,1,1]
+# var_val_dict = dict(zip(vars, vals))
 
-# run2a()
-# run2e()
-vars = ["x0","x1","x2","z_0_1","z_0_2"]
-vals = [1,1,1,1,1]
-var_val_dict = dict(zip(vars, vals))
+# edges = ["w_01_1","w_02_1","w_11_1","w_12_1","w_21_1","w_22_1","w_01_2","w_02_2","w_11_2","w_12_2","w_21_2","w_22_2","w_01_3","w_11_3","w_21_3"]
+# eVals = [-1,1,-2,2,-3,3,-1,1,-2,2,-3,3,-1,2,-1.5]
+# edge_val_dict = dict(zip(edges,eVals))
 
-edges = ["w_01_1","w_02_1","w_11_1","w_12_1","w_21_1","w_22_1","w_01_2","w_02_2","w_11_2","w_12_2","w_21_2","w_22_2","w_01_3","w_11_3","w_21_3"]
-eVals = [-1,1,-2,2,-3,3,-1,1,-2,2,-3,3,-1,2,-1.5]
-edge_val_dict = dict(zip(edges,eVals))
+# key,val = createq2NN(3)
+# my_nn = dict(zip(key,val))
+# nodes = [tuples[0] for tuples in key]
+# hidden_nodes = list(set(vars) ^ set(nodes))
 
-key,val = createq2NN(3)
-my_nn = dict(zip(key,val))
-nodes = [tuples[0] for tuples in key]
-hidden_nodes = list(set(vars) ^ set(nodes))
-
-var_val_dict = forward_pass(hidden_nodes, my_nn,edge_val_dict,var_val_dict)
-print(var_val_dict['y'])
-
+# var_val_dict = forward_pass(hidden_nodes, my_nn,edge_val_dict,var_val_dict)
+# back_propagation(1,1,1,var_val_dict['y'],1,var_val_dict,edge_val_dict,my_nn)
 # print(key[0])
 # print()
-# print(val[0])
+# print(val[0])x0,x1,x2,y,y_star,var_val, edge_val, neural_net
+
+run2e()

@@ -1,0 +1,6 @@
+- clone the repository to CADE machine
+- Make sure that you are in the correct directory which contains NN.py and have all the csv files. (For LMS questions)
+- NN.py file is where all my code is written
+- To make the 'run.sh' file executable, use the command 'chmod u+x run.sh'
+- To run the whole code, use the command './run.sh'
+- Code will start printing which function it is running and output results. Plots will be saved as pdf to current directory after the code is executed.
